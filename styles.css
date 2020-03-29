@@ -1,0 +1,33 @@
+label {
+  display: block;
+}
+
+fieldset {
+  border-color: #00aeef;
+  border-radius: 5px;
+  color: #00aeef;
+}
+
+input, p, label {
+  color: black;
+}
+
+img {
+  width: 100% !important;
+}
+
+.columna-izquierda {
+  clear: left;
+  float: left;
+  margin: 1rem;
+  padding: 1rem;
+  width: calc(50% - 4rem);
+}
+
+.columna-derecha {
+  clear: right;
+  float: right;
+  margin: 1rem;
+  padding: 1rem;
+  width: calc(50% - 4rem);
+}

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Sitio web de prueba</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+
+  <body>
+    <header>
+      <h1 style="text-align: center;">¡El sitio funciona!</h1>
+    </header>
+    <section class="columna-izquierda">
+      <img src="imagotipo-ECCI.png" alt="Logo ECCI colores" title="Logo ECCI colores" />
+    </section>
+    <section class="columna-derecha">
+      <img src="imagotipo-ECCI-ver-negro.png" alt="Logo ECCI blanco y negro" title="Logo ECCI blanco y negro" />
+    </section>
+    <section class="columna-derecha">
+      <form action="get.html" method="get">
+        <p>Este formulario envía datos a get.html usando el método GET.  Si uso el botón Enviar se envían datos (genera una entrada con datos en la bitácora).  <a href="get.html">Si voy a get.html por medio de este enlace no se envían datos (no genera una entrada con datos en la bitácora).</a></p>
+        <fieldset>
+          <label>
+            Digite cualquier hilera:
+            <input type="text" name="variable" />
+          </label><br />
+          <label>
+            ¡Acá hay un valor oculto!
+            <input type="hidden" name="oculto" />
+          </label><br />
+          <input type="submit" value="Enviar" />
+          <legend>Formulario GET</legend>
+        </fieldset>
+      </form>
+    </section>
+    <section class="columna-izquierda">
+      <form action="post.html" method="post">
+        <p>Este formulario envía datos a post.html usando el método POST.  Si uso el botón Enviar se envían datos (genera una entrada con datos en la bitácora).  <a href="post.html">Si voy a post.html por medio de este enlace no se envían datos (no genera una entrada con datos en la bitácora).</a></p>
+        <fieldset>
+          <label>
+            Digite cualquier hilera:
+            <input type="text" name="variable" />
+          </label><br />
+          <label>
+            ¡Acá hay un valor oculto!
+            <input type="hidden" name="oculto" />
+          </label><br />
+          <input type="submit" value="Enviar" />
+          <legend>Formulario POST</legend>
+        </fieldset>
+      </form>
+    </section>
+  </body>
+</html>
