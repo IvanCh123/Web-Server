@@ -27,7 +27,6 @@ class Server(BaseHTTPRequestHandler):
     types_handler = XML_Handler('mimetypes.xml')
 
     def do_HEAD(self):
-        self.send_header
         self.send_header('Server', self.server_version)
         self.send_header('Date', self.date_time_string(time.time()))
         self.send_header('Content-Length', self.headers.get('Content-Length'))
@@ -78,7 +77,7 @@ class Server(BaseHTTPRequestHandler):
             pass
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
-    """Handle requests in a separate thread."""
+    """Se crea un thread cada que hay un request"""
 
 def main():
     port = 80
