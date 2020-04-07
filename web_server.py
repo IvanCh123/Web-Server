@@ -25,76 +25,78 @@ class XML_Handler:
 
 class Server(BaseHTTPRequestHandler):
     types_handler = XML_Handler('mimetypes.xml')
-
+    
     def check_file(self, file_path):
-        return path.exists(file_path)
+        if path.exists(file_path):
+            return True
+        self.send_error(404,"File not found")
+        return False    
 
-    def set_headers(self):
-        pass  
+    def set_headers(self, content_type, content_length = None):
+        self.send_response(200)
+
+        self.send_header('Content-Length', content_length)
+        if content_length:
+            self.send_header('Content-Type', content_type)
+
+        self.end_headers()  
 
     def do_HEAD(self):
-        self.send_header('Server', self.server_version)
-        self.send_header('Date', self.date_time_string(time.time()))
-        self.send_header('Content-Length', self.headers.get('Content-Length'))
-        self.send_header('Content-Type', self.headers.get('Content-Type'))
-        self.end_headers()
+        if self.check_file(self.path[1:]):
 
-        #self.send_header('Accept') -> preguntar que es
-                
-        #self.send_header('Host', self.client_address)
-        #self.send_header('Referer') 
+            print("Path: ", self.path)
+
+            file_to_open = open(self.path[1:],'rb').read() # rb lo abre como binario para que las imagenes funcionen
+
+            _, suffix = path.splitext(self.path)
+            
+            content_type = self.types_handler.get_type(suffix[1:])
+            content_length = len(file_to_open)
+
+            self.set_headers(content_type, content_length)
+
         
     def do_GET(self):
+        print("GET request")
+
         if self.path == '/':
             self.path = '/index.html'
-        elif self.path.startswith('/get'):
+        else:
             current_path = self.path
             current_path = current_path.split('?')
+            """
+            if len(current_path)>1:
+                link = current_path[1].split('&')
+                msg = link[0].split('=')
+                msg = msg[1]
+            """
             self.path = current_path[0]
-        else:
-            pass
 
         if self.check_file(self.path[1:]):
             file_to_open = open(self.path[1:],'rb').read() # rb lo abre como binario para que las imagenes funcionen
-            self.send_response(200)
 
             _, suffix = path.splitext(self.path)
-        
             
             content_type = self.types_handler.get_type(suffix[1:])
             content_length = len(file_to_open)
-            #print("Type: {} \nLength: {}".format(content_type, content_length))
 
-            self.send_header('content-Length', content_length)
-            self.send_header('content-Type', content_type)
-            self.end_headers()
-
+            self.set_headers(content_type, content_length)
             self.wfile.write(bytes(file_to_open))
-        else:
-            self.send_error(404,"File not found")
-            print("File not found")
-        
     
     def do_POST(self):
         try:
-            print("Path POST", self.path)
+            print("POST request")
             file_to_open = open(self.path[1:],'rb').read()
-            self.send_response(200)
             
             _prefix, suffix = path.splitext(self.path)
+            
             content_type = self.types_handler.get_type(suffix[1:])
-
             content_length = len(file_to_open)
 
-            self.send_header('Content-Length', content_length)
-            self.send_header('Content-Type', content_type)
-            self.end_headers()
-
-
+            self.set_headers(content_type, content_length)
             self.wfile.write(bytes(file_to_open))
-        
         except:
-            pass
+            self.send_error(404,"File not found")
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """Se crea un thread cada que hay un request"""
@@ -102,8 +104,8 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 def main():
     port = 80
     try:
-        #server = ThreadedHTTPServer(('localhost', port), Server)
-        server = HTTPServer(('localhost', port), Server)
+        server = ThreadedHTTPServer(('localhost', port), Server)
+        #server = HTTPServer(('localhost', port), Server)
         print("Server running on port %s" % port)
         server.serve_forever()
     except KeyboardInterrupt:
