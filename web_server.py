@@ -26,6 +26,12 @@ class XML_Handler:
 class Server(BaseHTTPRequestHandler):
     types_handler = XML_Handler('mimetypes.xml')
 
+    def check_file(self, file_path):
+        return path.exists(file_path)
+
+    def set_headers(self):
+        pass  
+
     def do_HEAD(self):
         self.send_header('Server', self.server_version)
         self.send_header('Date', self.date_time_string(time.time()))
@@ -41,25 +47,37 @@ class Server(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/':
             self.path = '/index.html'
-        try:
+        elif self.path.startswith('/get'):
+            current_path = self.path
+            current_path = current_path.split('?')
+            self.path = current_path[0]
+        else:
+            pass
+
+        if self.check_file(self.path[1:]):
             file_to_open = open(self.path[1:],'rb').read() # rb lo abre como binario para que las imagenes funcionen
             self.send_response(200)
-        except IOError:
-            self.send_error('404',"File not found")
-        
-        _, suffix = path.splitext(self.path)
-        
-        content_type = self.types_handler.get_type(suffix[1:])
-        content_length = len(file_to_open)
 
-        self.send_header('content-Length', content_length)
-        self.send_header('content-Type', content_type)
-        self.end_headers()
+            _, suffix = path.splitext(self.path)
+        
+            
+            content_type = self.types_handler.get_type(suffix[1:])
+            content_length = len(file_to_open)
+            #print("Type: {} \nLength: {}".format(content_type, content_length))
 
-        self.wfile.write(bytes(file_to_open))
+            self.send_header('content-Length', content_length)
+            self.send_header('content-Type', content_type)
+            self.end_headers()
+
+            self.wfile.write(bytes(file_to_open))
+        else:
+            self.send_error(404,"File not found")
+            print("File not found")
+        
     
     def do_POST(self):
         try:
+            print("Path POST", self.path)
             file_to_open = open(self.path[1:],'rb').read()
             self.send_response(200)
             
@@ -71,6 +89,8 @@ class Server(BaseHTTPRequestHandler):
             self.send_header('Content-Length', content_length)
             self.send_header('Content-Type', content_type)
             self.end_headers()
+
+
             self.wfile.write(bytes(file_to_open))
         
         except:
@@ -82,7 +102,8 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 def main():
     port = 80
     try:
-        server = ThreadedHTTPServer(('localhost', port), Server)
+        #server = ThreadedHTTPServer(('localhost', port), Server)
+        server = HTTPServer(('localhost', port), Server)
         print("Server running on port %s" % port)
         server.serve_forever()
     except KeyboardInterrupt:
