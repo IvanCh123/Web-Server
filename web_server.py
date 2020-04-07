@@ -35,10 +35,9 @@ class Server(BaseHTTPRequestHandler):
     def set_headers(self, content_type, content_length = None):
         self.send_response(200)
 
-        self.send_header('Content-Length', content_length)
         if content_length:
-            self.send_header('Content-Type', content_type)
-
+            self.send_header('Content-Length', content_length)
+        self.send_header('Content-Type', content_type)
         self.end_headers()  
 
     def do_HEAD(self):
