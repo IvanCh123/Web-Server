@@ -33,25 +33,22 @@ class Server(BaseHTTPRequestHandler):
         self.send_error(404,"File not found")
         return False    
 
-    def check_accept(self, requestBuffer):
+    def check_accept(self,file_path):
 
-        buffer_vector = requestBuffer.split()#la peticion convertida a vector
-        accept_mimetype = buffer_vector[8] #Accept: */* en bytes
-        file_Open = buffer_vector[1] #/index.html en bytes
-        file_open_String = file_Open.decode("utf-8")
-        if file_open_String == "/":
-            file_open_String = "/index.html"
-        accept_clause = accept_mimetype.decode("utf-8")
-        print(accept_clause)
-        print(file_open_String)
-        file_type_buffer = file_open_String.split(".")#
+
+        file_Open = file_path 
+
+        if file_Open == '/':
+            file_Open = '/index.html'
+ 
+        file_type_buffer = file_Open.split(".")#
         file_type = file_type_buffer[1] #html o extension
 
-        #si el string es mas largo
+
         if file_type.find('?') != -1: 
             file_trueType = file_type.split("?")
             file_type = file_trueType[0]
-        accept_buffer = accept_clause.split("/")
+        accept_buffer = self.headers['Accept'].split("/")#accept_clause.split("/")
         accept_type = accept_buffer[1] #gif de image/gif o el * de */*
 
         if accept_type == "*":
@@ -83,8 +80,8 @@ class Server(BaseHTTPRequestHandler):
     def do_HEAD(self):
         self.path, query = self.get_args(self.path)
         self.log_info(self.command , 'localhost', '', self.path, query)
-        
-        if self.check_file(self.path):
+
+        if self.check_file(self.path) and self.check_accept(self.path):
             file_to_open = open(self.path,'rb').read() # rb lo abre como binario para que las imagenes funcionen
 
             _, suffix = path.splitext(self.path)
@@ -96,7 +93,6 @@ class Server(BaseHTTPRequestHandler):
         
     def do_GET(self):
         query = ''
-
         if self.path == '/':
             self.path = 'index.html'
         else:
@@ -104,7 +100,7 @@ class Server(BaseHTTPRequestHandler):
 
         self.log_info(self.command, 'localhost', '', self.path, query)
 
-        if self.check_file(self.path):
+        if self.check_file(self.path) and self.check_accept(self.path):
             file_to_open = open(self.path,'rb').read() # rb lo abre como binario para que las imagenes funcionen
 
             _, suffix = path.splitext(self.path)

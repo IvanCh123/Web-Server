@@ -100,3 +100,7 @@ while True:
 # 	server.run()
 
 # main()
+
+# print(self.headers['Accept'])#borrar todo desde aqui
+# own_headers = self.headers['Accept'].split("/")
+# print(own_headers)
