@@ -21,8 +21,35 @@ while True:
 	print(peticion)
 	buffer_vector = peticion.split()#la peticion como vector 
 	print(buffer_vector)
-	method_Type = buffer_vector[0] #GET, POST, HEAD
+	method_Type = buffer_vector[8] #GET, POST, HEAD
+	file_Open = buffer_vector[1]
+
 	print(method_Type)
+	file_open_String = file_Open.decode("utf-8")
+	if file_open_String == "/":
+		file_open_String = "/index.html"
+	accept_clause = method_Type.decode("utf-8")
+	print(accept_clause)
+	print(file_open_String)
+	file_type_buffer = file_open_String.split(".")
+	file_type = file_type_buffer[1]
+
+	#si el string es mas largo
+	if file_type.find('?') != -1:
+		file_trueType = file_type.split("?")
+		file_type = file_trueType[0]
+	accept_buffer = accept_clause.split("/")
+	accept_type = accept_buffer[1]
+	print(accept_type)
+	print(file_type)
+
+	if accept_type == "*":
+		print("200Ok")
+	else:
+		if accept_type != file_type:
+			print("Error 406")
+		else: 
+			print("200OK")	 	
 
 	#Estructura, comentado porque no se ha implementado los metodos
 	

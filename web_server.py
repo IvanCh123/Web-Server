@@ -33,6 +33,35 @@ class Server(BaseHTTPRequestHandler):
         self.send_error(404,"File not found")
         return False    
 
+    def check_accept(self, requestBuffer):
+
+        buffer_vector = requestBuffer.split()#la peticion convertida a vector
+        accept_mimetype = buffer_vector[8] #Accept: */* en bytes
+        file_Open = buffer_vector[1] #/index.html en bytes
+        file_open_String = file_Open.decode("utf-8")
+        if file_open_String == "/":
+            file_open_String = "/index.html"
+        accept_clause = accept_mimetype.decode("utf-8")
+        print(accept_clause)
+        print(file_open_String)
+        file_type_buffer = file_open_String.split(".")#
+        file_type = file_type_buffer[1] #html o extension
+
+        #si el string es mas largo
+        if file_type.find('?') != -1: 
+            file_trueType = file_type.split("?")
+            file_type = file_trueType[0]
+        accept_buffer = accept_clause.split("/")
+        accept_type = accept_buffer[1] #gif de image/gif o el * de */*
+
+        if accept_type == "*":
+            return True
+        else:
+            if accept_type != file_type:
+                self.send_error(406,"Not Acceptable")
+            else: 
+                return True
+
     def set_headers(self, content_type, content_length = None):
         self.send_response(200)
 
