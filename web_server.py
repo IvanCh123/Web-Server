@@ -1,4 +1,4 @@
-import os, re, socket, threading, datetime, logging, time, xml.etree.ElementTree as ET
+import os, re, socket, threading, datetime, time, xml.etree.ElementTree as ET
 from io import BytesIO
 from urllib.parse import urlparse 
 from socket import SHUT_WR
@@ -74,7 +74,7 @@ class Server_Handler:
 
     def send_headers(self, client_socket, protocol, error_code, content_type=None, content_length = None, file_content=None):
         error_html = "<html><body><h1>Error response</h1><p>Error code: {}</p><p>Message: {}.</p></body></html>\n"
-        server = "MyServer/1.0"
+        server = "MyCoolServer/1.0"
         if not error_code.startswith('200'):
             message = ""
             if error_code.startswith('404'):
@@ -95,9 +95,6 @@ class Server_Handler:
         else:
             client_socket.send(output.encode("utf-8"))
             
-    def log_info(self, command, server, referer='', url='', data=''):
-        logging.info(" {} > {} > {} > {} > /{} > {}".format(command, int(time.time()), server, referer, url, data))    
-
     def get_args(self, url):
         long_url = urlparse(url)
         file_name = long_url[2] #2: path index
@@ -111,8 +108,7 @@ class Server_Handler:
         host_name = data_vector[2]
         protocol = data_vector[4]
 
-        file_name, query = self.get_args(file_name)
-        self.log_info(command , host_name, '', file_name, query)
+        file_name, _ = self.get_args(file_name)
 
         if self.check_file(file_name): 
             if self.check_accept(data_vector):
@@ -138,9 +134,7 @@ class Server_Handler:
         if file_name == '/':
             file_name = 'index.html'
         else:
-            file_name, query = self.get_args(file_name)
-
-        self.log_info(command, host_name, '', file_name, query)
+            file_name, _ = self.get_args(file_name)
 
         if self.check_file(file_name):
             if self.check_accept(data_vector):
@@ -163,8 +157,7 @@ class Server_Handler:
         host_name = data_vector[2]
         protocol = data_vector[4]
         
-        file_name, query = self.get_args(file_name)
-        self.log_info(command, host_name, '', file_name, query)
+        file_name, _ = self.get_args(file_name)
         
         try:
             file_content = open(file_name,'rb').read()
@@ -181,45 +174,55 @@ class Server_Handler:
             self.send_headers(client_socket, protocol, "404 Not Found",None,None,None)
 
 class Request_Handler:
-	server = Server_Handler()
+    server = Server_Handler()
 
-	def call_server(self, data_vector, client_socket):
-		method_type = data_vector[0]
-		protocol = data_vector[4]
+    def call_server(self, data_vector, client_socket):
+        method_type = data_vector[0]
+        protocol = data_vector[4]
 
-		if method_type == "GET":
-			self.server.do_GET(data_vector, client_socket)
-		elif method_type == "POST":
-			self.server.do_POST(data_vector, client_socket)
-		elif method_type == "HEAD":
-			self.server.do_HEAD(data_vector, client_socket)	
-		else:
-			return self.server.send_headers(client_socket, protocol, "501 Not supported",None,None,None)
-				
-	def look_for(self, buffer_vector, var):
-		index = 0
-		for item in buffer_vector:
-			if item.decode("utf-8").startswith(var):
-				return index
-			index+=1
-		return -1
+        if method_type == "GET":
+            self.server.do_GET(data_vector, client_socket)
+        elif method_type == "POST":
+            self.server.do_POST(data_vector, client_socket)
+        elif method_type == "HEAD":
+            self.server.do_HEAD(data_vector, client_socket)	
+        else:
+            return self.server.send_headers(client_socket, protocol, "501 Not supported",None,None,None)
+                
+    def look_for(self, buffer_vector, var):
+        index = 0
+        for item in buffer_vector:
+            if item.decode("utf-8").startswith(var):
+                return index
+            index+=1
+        return -1
 
-	def parse_request(self, data, client_socket):
-		buffer_vector = data.split()#la request como vector 
+    def parse_request(self, data, client_socket, log_file):
+        buffer_vector = data.split()#la request como vector 
 
-		command = buffer_vector[0].decode("utf-8")# GET, POST, HEAD
-		file_name = buffer_vector[1].decode("utf-8") # url/archivo
-		protocol = buffer_vector[2].decode("utf-8") # HTTP/1.1
-		accept_types = buffer_vector[self.look_for(buffer_vector, 'Accept')+1].decode("utf-8")
-		host_name = buffer_vector[self.look_for(buffer_vector, 'Host')+1].decode("utf-8")
-		
-		buffer_vector = None
-		data_vector = [command, file_name, host_name, accept_types, protocol]
+        command = buffer_vector[0].decode("utf-8")# GET, POST, HEAD
+        file_name = buffer_vector[1].decode("utf-8") # url/archivo
+        protocol = buffer_vector[2].decode("utf-8") # HTTP/1.1
+        accept_types = buffer_vector[self.look_for(buffer_vector, 'Accept')+1].decode("utf-8")
+        host_name = buffer_vector[self.look_for(buffer_vector, 'Host')+1].decode("utf-8")
+        
+        buffer_vector = None
+        data_vector = [command, file_name, host_name, accept_types, protocol]
 
-		return data_vector
+        print("    [{}] {} request on {} @ {}".format(os.getpid(), command, host_name, file_name))
+        
+        file_name, query = self.server.get_args(file_name)
+        request_meesage =  "{}, {}, {}, {}, {}, {}\n".format(command, int(time.time()), host_name, '', file_name, query)
+        
+        file = open(log_file, "a")
+        file.write(request_meesage)
+        file.close()
+        
 
-def run(data, request, client_socket):	
-	new_data  = request.parse_request(data, client_socket)
+        return data_vector
+
+def run(data, request, client_socket, log_file):	
+	new_data  = request.parse_request(data, client_socket, log_file)
 	request.call_server(new_data, client_socket)
 	
 def main():
@@ -231,7 +234,7 @@ def main():
     server_socket.listen(5)
 
     print("Server running on port %s" % port)
-    
+
     date_tag = datetime.datetime.now().strftime("%Y-%b-%d_%H-%M-%S")
     cwd = os.getcwd()
     directory = os.path.join(cwd,"logs")
@@ -239,9 +242,8 @@ def main():
     if not os.path.exists(directory):
         os.mkdir(directory)
 
-    file_name = '{}/logs/bitacora_{}.log'.format(cwd, date_tag)
-    logging.basicConfig(filename=file_name, level=logging.INFO)
-
+    file_name = '{}/logs/bitacora_{}.csv'.format(cwd, date_tag)
+    log_file = open(file_name, "w")
     client_socket = None
     try:
         while True:
@@ -249,10 +251,10 @@ def main():
             data = client_socket.recv(1024)
             
             if data:
-                process = Process(target=run, args=(data,request,client_socket,))
-                print("[%s] Started" % process.name)
+                process = Process(target=run, args=(data,request,client_socket,file_name,))
                 if process.name == "Process-1":
-                    logging.info('\n---------\nLog started on %s.\n---------' % time.asctime())
+                    log_file.write("Metodo, Estampilla de Tiempo, Servidor, Refiere, URL, Datos\n")
+                    log_file.close()
                 process.start()
 
             if process.name != "Process-1":
@@ -260,7 +262,6 @@ def main():
             
     except KeyboardInterrupt:
         print ("Closing web server")
-        logging.info('\n---------\nLog closed on %s.\n---------\n' % time.asctime())
         client_socket.shutdown(SHUT_WR)
         client_socket.close()
     
