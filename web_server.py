@@ -94,9 +94,7 @@ class Server_Handler:
             client_socket.send(output.encode("utf-8"))
             
     def do_HEAD(self, data_vector, client_socket):
-        command = data_vector[0]
         file_name = data_vector[1]
-        host_name = data_vector[2]
         protocol = data_vector[4]
 
         if self.check_file(file_name): 
@@ -115,10 +113,7 @@ class Server_Handler:
             self.send_headers(client_socket, protocol, "404 Not Found",None,None,None)
     
     def do_GET(self, data_vector, client_socket):
-        query = ''
-        command = data_vector[0]
         file_name = data_vector[1]
-        host_name = data_vector[2]
         protocol = data_vector[4]
 
         if self.check_file(file_name):
@@ -137,9 +132,7 @@ class Server_Handler:
             self.send_headers(client_socket, protocol, "404 Not Found",None,None,None)
 
     def do_POST(self, data_vector, client_socket):
-        command = data_vector[0]
         file_name = data_vector[1]
-        host_name = data_vector[2]
         protocol = data_vector[4]
                 
         try:
@@ -244,34 +237,38 @@ def main():
 
     file_name = file_setup()
     
-    client_socket = None
-    stop_signal = threading.Event()
-
-    def thread_gen(stop_signal):
+    def thread_gen():
         for worker_id in range(thread_count):
-            thread = threading.Thread(target=run, args=(stop_signal,worker_id, server_socket, file_name,request,))
+            thread = threading.Thread(target=run, args=(worker_id, server_socket, file_name, request,))
             thread.daemon = True
             yield thread # use yield when we want to iterate over a sequence, but don’t want to store the entire sequence in memory.
 
-    threads = list(thread_gen(stop_signal))
+    threads = list(thread_gen())
 
     for thread in threads:
-        thread.start()
+        thread.start() 
 
     try:
         while True:
             pass
     except KeyboardInterrupt:
         print ("Closing web server")
+        server_socket.close()
+        threads.clear()
         os.sys.exit(0) 
 
-def run(stop_signal, worker_id, server_socket, file_name,request):
-    client_socket, addr = server_socket.accept()
-    while True:
-        data = client_socket.recv(1024)
-        if data:
-            clean_data  = request.parse_request(worker_id,data, client_socket, file_name)
-            request.call_server(clean_data, client_socket)
-    
+def run(worker_id, server_socket, file_name, request):
+    client_socket, _addr = server_socket.accept()
+    _continue = True
+    try:
+        while _continue:
+            data = client_socket.recv(1024)
+            if data:
+                clean_data  = request.parse_request(worker_id,data, client_socket, file_name)
+                request.call_server(clean_data, client_socket)
+    except:
+        _continue = False
+        
+
 if __name__ == '__main__':
     main()  
