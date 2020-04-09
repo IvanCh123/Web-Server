@@ -1,8 +1,6 @@
 import os, re, socket, threading, datetime, time, xml.etree.ElementTree as ET
 from io import BytesIO
 from urllib.parse import urlparse 
-from socket import SHUT_WR
-from multiprocessing import Process
 
 """
 	data_vector:
@@ -95,20 +93,11 @@ class Server_Handler:
         else:
             client_socket.send(output.encode("utf-8"))
             
-    def get_args(self, url):
-        long_url = urlparse(url)
-        file_name = long_url[2] #2: path index
-        query = long_url[4] #4: query index
-
-        return file_name[1:], query
-        
     def do_HEAD(self, data_vector, client_socket):
         command = data_vector[0]
         file_name = data_vector[1]
         host_name = data_vector[2]
         protocol = data_vector[4]
-
-        file_name, _ = self.get_args(file_name)
 
         if self.check_file(file_name): 
             if self.check_accept(data_vector):
@@ -119,22 +108,18 @@ class Server_Handler:
                 content_length = len(file_content)
 
                 self.send_headers(client_socket,protocol, "200 OK", content_type, content_length,None)
+                time.sleep(1)
             else:
                 self.send_headers(client_socket, protocol, "406 Not Acceptable",None,None,None)	
         else:
             self.send_headers(client_socket, protocol, "404 Not Found",None,None,None)
-
+    
     def do_GET(self, data_vector, client_socket):
         query = ''
         command = data_vector[0]
         file_name = data_vector[1]
         host_name = data_vector[2]
         protocol = data_vector[4]
-
-        if file_name == '/':
-            file_name = 'index.html'
-        else:
-            file_name, _ = self.get_args(file_name)
 
         if self.check_file(file_name):
             if self.check_accept(data_vector):
@@ -156,9 +141,7 @@ class Server_Handler:
         file_name = data_vector[1]
         host_name = data_vector[2]
         protocol = data_vector[4]
-        
-        file_name, _ = self.get_args(file_name)
-        
+                
         try:
             file_content = open(file_name,'rb').read()
             if self.check_accept(data_vector):
@@ -176,6 +159,13 @@ class Server_Handler:
 class Request_Handler:
     server = Server_Handler()
 
+    def get_args(self, url):
+        long_url = urlparse(url)
+        file_name = long_url[2] #2: path index
+        query = long_url[4] #4: query index
+
+        return file_name[1:], query
+
     def call_server(self, data_vector, client_socket):
         method_type = data_vector[0]
         protocol = data_vector[4]
@@ -188,7 +178,7 @@ class Request_Handler:
             self.server.do_HEAD(data_vector, client_socket)	
         else:
             return self.server.send_headers(client_socket, protocol, "501 Not supported",None,None,None)
-                
+    
     def look_for(self, buffer_vector, var):
         index = 0
         for item in buffer_vector:
@@ -197,7 +187,7 @@ class Request_Handler:
             index+=1
         return -1
 
-    def parse_request(self, data, client_socket, log_file):
+    def parse_request(self, worker_id, data, client_socket, log_file):
         buffer_vector = data.split()#la request como vector 
 
         command = buffer_vector[0].decode("utf-8")# GET, POST, HEAD
@@ -207,34 +197,25 @@ class Request_Handler:
         host_name = buffer_vector[self.look_for(buffer_vector, 'Host')+1].decode("utf-8")
         
         buffer_vector = None
-        data_vector = [command, file_name, host_name, accept_types, protocol]
+        query = ''
 
-        print("    [{}] {} request on {} @ {}".format(os.getpid(), command, host_name, file_name))
+        if file_name == '/':
+            file_name = 'index.html'
+        else:
+            file_name, query = self.get_args(file_name)
+
+        data_vector = [command, file_name, host_name, accept_types, protocol]
+        print("    [{}] {} request on {} @ {}".format(worker_id, command, host_name, file_name))
         
-        file_name, query = self.server.get_args(file_name)
         request_meesage =  "{}, {}, {}, {}, {}, {}\n".format(command, int(time.time()), host_name, '', file_name, query)
         
         file = open(log_file, "a")
         file.write(request_meesage)
         file.close()
         
-
         return data_vector
-
-def run(data, request, client_socket, log_file):	
-	new_data  = request.parse_request(data, client_socket, log_file)
-	request.call_server(new_data, client_socket)
 	
-def main():
-    port = 80
-    request = Request_Handler()
-
-    server_socket = socket.socket()
-    server_socket.bind(('localhost',port))
-    server_socket.listen(5)
-
-    print("Server running on port %s" % port)
-
+def file_setup():
     date_tag = datetime.datetime.now().strftime("%Y-%b-%d_%H-%M-%S")
     cwd = os.getcwd()
     directory = os.path.join(cwd,"logs")
@@ -244,26 +225,53 @@ def main():
 
     file_name = '{}/logs/bitacora_{}.csv'.format(cwd, date_tag)
     log_file = open(file_name, "w")
+    log_file.write("Metodo, Estampilla de Tiempo, Servidor, Refiere, URL, Datos\n")
+    log_file.close()
+
+    return file_name
+
+def main():
+    port = 80
+    thread_count = 8
+
+    request = Request_Handler()
+    server_socket = socket.socket()
+    
+    server_socket.bind(('localhost',port))
+    server_socket.listen(5)
+
+    print("Server running on port %s" % port)
+
+    file_name = file_setup()
+    
     client_socket = None
+    stop_signal = threading.Event()
+
+    def thread_gen(stop_signal):
+        for worker_id in range(thread_count):
+            thread = threading.Thread(target=run, args=(stop_signal,worker_id, server_socket, file_name,request,))
+            thread.daemon = True
+            yield thread # use yield when we want to iterate over a sequence, but don’t want to store the entire sequence in memory.
+
+    threads = list(thread_gen(stop_signal))
+
+    for thread in threads:
+        thread.start()
+
     try:
         while True:
-            client_socket, addr = server_socket.accept()
-            data = client_socket.recv(1024)
-            
-            if data:
-                process = Process(target=run, args=(data,request,client_socket,file_name,))
-                if process.name == "Process-1":
-                    log_file.write("Metodo, Estampilla de Tiempo, Servidor, Refiere, URL, Datos\n")
-                    log_file.close()
-                process.start()
-
-            if process.name != "Process-1":
-                process.join()			
-            
+            pass
     except KeyboardInterrupt:
         print ("Closing web server")
-        client_socket.shutdown(SHUT_WR)
-        client_socket.close()
+        os.sys.exit(0) 
+
+def run(stop_signal, worker_id, server_socket, file_name,request):
+    client_socket, addr = server_socket.accept()
+    while True:
+        data = client_socket.recv(1024)
+        if data:
+            clean_data  = request.parse_request(worker_id,data, client_socket, file_name)
+            request.call_server(clean_data, client_socket)
     
 if __name__ == '__main__':
     main()  
